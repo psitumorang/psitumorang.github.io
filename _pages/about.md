@@ -9,6 +9,6 @@ redirect_from:
 
 A data scientist at Volpe Center's Safety Measurement and Analysis Division, Philip applies broad expertise in advanced analytics, risk management, and logistics to promote a safer American transportation system. He leads research projects aimed at understanding road safety risks, improving system efficiencies of federal agencies, and aiding policy makers' decision making. His academic interests include the use of interpretable machine learning to understand risk factors and statistical inference methods to identify causal links in the context of risk management.
 
-A veteran of the war in Afghanistan, Philip has served for over a decade in the United States Army Reserves and currently serves as the commander of Charlie Company, 3-518th Infantry Regiment.
+Outside of Volpe, Philip has served for over a decade in the United States Army Reserves and currently serves as the commander of Charlie Company, 3-518th Infantry Regiment.
 
 
