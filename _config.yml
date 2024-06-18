@@ -8,7 +8,7 @@
 
 # Basic Site Settings
 locale                   : "en-US"
-title                    : "           "
+title                    : "Philip Situmorang "
 title_separator          : "-"
 name                     : &name "Philip Situmorang"
 description              : &description "personal description"
@@ -22,7 +22,7 @@ repository               : "philmst/philmst.github.io"
 author:
   # Biographic information
   avatar           : "profile.png"
-  name             : "Your Sidebar Name"
+  name             : #"Your Sidebar Name"
   pronouns         : # example: "she/her"  
   bio              : "Data Scientist, U.S. Department of Transportation Volpe Research Center"
   location         : "Philadelphia, Pennsylvania "
