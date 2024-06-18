@@ -7,4 +7,4 @@ redirect_from:
   - /about.html
 ---
 
-Philip
+Philip is a data scientist based in Philadelphia 
