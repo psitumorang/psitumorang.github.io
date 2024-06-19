@@ -96,7 +96,7 @@
     // min-width: 80em;
     // border-radius: 50%;
 
-    @include breakpoint($x-large) {
+    @include breakpoint($large) {
       padding: 5px;
       border: 0.5px solid $border-color;
     }
