@@ -1,7 +1,7 @@
 ---
 layout: archive
-title: "Publications"
-permalink: /publications/
+title: "Military Biography"
+permalink: /bio/
 author_profile: true
 ---
 
