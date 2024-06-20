@@ -7,11 +7,11 @@ main:
   - title: "Portfolio"
     url: /portfolio/
 
-  - title: "Military Bio"
-    url: /bio/
-
   - title: "Resources"
-    url: /resources/
+    url: /markdown/
+
+  #- title: "Resources"
+    #url: /resources/
 
   
   #- title: "Talks"
