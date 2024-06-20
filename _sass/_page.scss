@@ -61,6 +61,7 @@
 
   /* paragraph indents */
   p {
+
     margin: 0 0 $indent-var;
 
     /* sibling indentation*/
@@ -70,6 +71,10 @@
         margin-top: -($indent-var);
       }
     }
+
+    /* added justify paragraph */   
+    text-align: justify;
+    text-justify: inter-word;
   }
 
   a {
