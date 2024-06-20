@@ -50,6 +50,10 @@
 
 .page__content {
 
+  /* added justify paragraph */   
+  text-align: justify;
+  text-justify: inter-word;
+
   h2 {
     padding-bottom: 0.5em;
     border-bottom: 1px solid $border-color;
@@ -71,10 +75,6 @@
         margin-top: -($indent-var);
       }
     }
-
-    /* added justify paragraph */   
-    text-align: justify;
-    text-justify: inter-word;
   }
 
   a {
