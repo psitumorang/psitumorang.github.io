@@ -4,8 +4,8 @@ main:
   - title: "Curriculum Vitae"
     url: /cv/
     
-  - title: "Projects"
-    url: /projects/
+  - title: "Portfolio"
+    url: /portfolio/
 
   - title: "Military Bio"
     url: /bio/
