@@ -24,7 +24,7 @@ author:
   avatar           : "phil.jpg"
   name             : #"Your Sidebar Name"
   pronouns         : # example: "she/her"  
-  bio              : "Data Scientist, U.S. Department of Transportation Volpe Research Center"
+  bio              : # "Data Scientist, U.S. Department of Transportation Volpe Research Center"
   location         : "Philadelphia, Pennsylvania "
   #employer         : "Red Brick University"
   #uri              : # URL
