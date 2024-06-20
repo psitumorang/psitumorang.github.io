@@ -3,7 +3,6 @@
    ========================================================================== */
 
 .masthead {
-  padding-left: 50px;
   position: fixed;
   background: white;
   border-bottom: 1px solid $border-color;
@@ -38,7 +37,6 @@
 }
 
 .masthead__menu {
-  padding-left: 100px;
    
   ul {
     margin: 0;
@@ -55,6 +53,7 @@
 
   &--lg {
     padding-right: 3em;
+    padding-left: 3em;
     font-weight: 700;
   }
 }
