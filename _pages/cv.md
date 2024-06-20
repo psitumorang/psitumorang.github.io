@@ -9,6 +9,8 @@ redirect_from:
 
 {% include base_path %}
 
+<embed src="{{ site.baseurl }}/files/Resume_Main.pdf" width="650" height="800" type='application/pdf'>
+
 Education
 ======
 * Ph.D in Version Control Theory, GitHub University, 2018 (expected)
