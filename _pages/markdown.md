@@ -1,13 +1,11 @@
 ---
 permalink: /markdown/
-title: ""
+title: "Page Repository"
 author_profile: true
 redirect_from: 
   - /md/
   - /markdown.html
 ---
-
-## Page Repository
 
 Template for this page can be forked from this [repository](https://github.com/psitumorang/psitumorang.github.io/).
   
