@@ -11,6 +11,6 @@ Template for this page can be forked from this [repository](https://github.com/p
   
 ## LaTeX
 
-For .tex file used to create the resume shown visit this [link](https://www.overleaf.com/latex/templates/luxsleek-cv/qbvbqmrzxwyj/).
+For .tex file used to create resume shown visit this [link](https://www.overleaf.com/latex/templates/luxsleek-cv/qbvbqmrzxwyj/).
 
 For template used to write model summaries visit this [respository](https://github.com/NicholasMamo/adonis-template/).
