@@ -1,6 +1,6 @@
 ---
 permalink: /markdown/
-title: "Resources"
+title: ""
 author_profile: true
 redirect_from: 
   - /md/
@@ -9,7 +9,7 @@ redirect_from:
 
 ## Page Repository
 
-Template for this page can be visited using this [repository](https://github.com/psitumorang/psitumorang.github.io/).
+Template for this page can be forked from this [repository](https://github.com/psitumorang/psitumorang.github.io/).
   
 ## LaTeX
 
