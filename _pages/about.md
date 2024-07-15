@@ -8,6 +8,6 @@ redirect_from:
 ---
 # About
 
-<p align="justify"> Philip is a data scientist who works for data solutions that create value and get results. He strives to understand business problems and solve them through delivering incisive, cost-effective data products. From AI architecture to one-time data analyses, he loves helping others understand how different data and technology products can generate real value in organizations.
+<p align="justify"> Philip is a data professional at the Volpe Center with several leadership and technical backgrounds in the fields of analytics, logistics, transportation, risk management, safety measurement, and program evaluation. He serves also as commander of C Company, 3-518th Infantry Regiment in the United States Army Reserves.
 </p>
 
