@@ -6,9 +6,12 @@ redirect_from:
   - /about/
   - /about.html
 ---
-# About
 
-<p align="justify"> A data scientist at the Volpe Center, Philip leverages information contained in databases accross the U.S. Department of Transportation to provide data products that deliver value and impact for the Department's agencies. He currently serves as lead for data projects aimed at measuring the effectiveness of safety systems and evaluating accident risk factors. As a data consultant, he enjoys the process of getting to know clients, understanding their business problems and goals, and crafting cost-effective data solutions that get results and positively impact organizations.
+<p align="justify"> A data scientist at the Volpe Center, Philip leverages information contained in databases accross the U.S. Department of Transportation to provide impactful data products for the department's agencies. He currently leads data projects aimed at measuring the effectiveness of safety systems and evaluating accident risk factors. As a data consultant, he loves the process of understanding client goals and delivering cost-effective data solutions which get results.
+</p>
+
+<p align="justify">
+Outside of Volpe, Philip is a soldier in the U.S. Army Reserves with over a decade of experience as a logistician. He currently serves as commander of Charlie Company of the 3-518th Infantry Regiment, where he has the privilege of leading the Army's best drill sergeants in training the Army's future leaders. 
 </p>
 
 <p align="justify">
