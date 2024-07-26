@@ -7,7 +7,7 @@ redirect_from:
   - /about.html
 ---
 
-#About
+##About
 
 <p align="justify"> A data scientist at the Volpe Center, Philip leverages information contained in databases accross the U.S. Department of Transportation to provide impactful data products for the department's agencies. A member of the safety measurement and analysis division, he currently leads data projects aimed at improving road safety by measuring the effectiveness of safety systems and evaluating accident risk factors. As a data consultant, he loves the process of understanding stakeholders' problems and delivering cost-effective data solutions which provide positive, impactful results.
 </p>
