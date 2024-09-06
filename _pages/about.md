@@ -12,7 +12,7 @@ redirect_from:
 </p>
 
 <p align="justify">
-Outside of the Department of Transportation, I am a soldier in the U.S. Army Reserves with over a decade of experience as a logistician. I currently serve as commander of Charlie Company of the 3-518th Infantry Regiment, where I have the privilege of leading the Army's best drill sergeants in training the Army's future leaders. 
+Outside of the Department of Transportation, I am a soldier in the U.S. Army Reserves with over a decade of experience as a logistician. I currently serve as commanding officer of Charlie Company of the 3-518th Infantry Regiment, where I have the privilege of leading the Army's best drill sergeants in training the Army's future leaders. 
 </p>
 
 <p align="justify">
