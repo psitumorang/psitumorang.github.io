@@ -8,7 +8,7 @@ redirect_from:
 ---
 # About
 
-<p align="justify"> A data scientist at the Volpe Center, I leverage information contained in databases of the U.S. Department of Transportation to provide data products for the department's agencies. Currently, I lead data projects aimed at improving road safety by measuring the effectiveness of safety systems and evaluating accident risk factors. As a data consultant, I love the process of understanding stakeholders' problems and delivering cost-effective data solutions that provide positive, impactful results.
+<p align="justify"> I am a data scientist at the Volpe Center, where I leverage information contained in databases of the U.S. Department of Transportation to provide data products for the department's agencies. Currently, I lead data projects aimed at improving road safety by measuring the effectiveness of safety systems and evaluating accident risk factors. As a data consultant, I love the process of understanding stakeholders' problems and delivering cost-effective data solutions that provide positive, impactful results.
 </p>
 
 <p align="justify">
