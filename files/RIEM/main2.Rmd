@@ -57,7 +57,7 @@ We first query raw data from the MCMIS database. This includes data on power uni
 ```{r}
 # this sets up R to Oracle connection, using RODBC package. Enter username and password after Uid and Pwd in the string below. Remove hashtag and run this cell to connect to MCMIS.
 
-#con <- odbcDriverConnect("Driver={Oracle in OraDB19Home1};Dbq=10.75.161.127:1526/AIDB;Uid=;Pwd=;")
+#con <- odbcDriverConnect("Driver={Oracle in OraDB19Home1};Dbq=/AIDB;Uid=;Pwd=;")
 ```
 
 ```{r, eval = FALSE}
@@ -1692,4 +1692,5 @@ plot(crash_rate_change ~ insp_rate_change, data=group_4_modified)
 
 #add fitted regression line to scatterplot
 abline(model, col = 'blue', lwd = 2)
+
 ```
