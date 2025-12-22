@@ -1,0 +1,1695 @@
+---
+title: "RIEM MAIN Period 2"
+subtitle: "(Inspection Period: 10/01/2020 - 09/30/2021)"
+date: "2024-09-04"
+output:
+  html_document:
+    code_folding: hide
+    highlight: haddock
+    number_sections: yes
+    theme: lumen
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  pdf_document:
+    extra_dependencies: ["dcolumn"]
+    number_sections: yes
+    toc: yes
+    toc_depth: '4'
+  word_document:
+    toc: yes
+    toc_depth: '4'
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, results = "show", fig.width=8, fig.height=4)
+
+output_format <- ifelse(is.null(knitr::opts_knit$get("rmarkdown.pandoc.to")),"text", knitr::opts_knit$get("rmarkdown.pandoc.to"))
+
+library(RODBC)
+library(tidyverse)
+library(dplyr)
+library(readr)
+
+# to avoid having to rerun the queries we can save them in rworkspace.RDATA and rerun the line below
+load(file = "rworkspace.RData")
+```
+
+\pagebreak
+
+# Introduction {-}
+
+This model estimates the effectiveness of roadside inspections for one fiscal year. The period of analysis is detailed in the subtitle above. 
+
+Year 0: 10/01/2019 - 09/30/2020
+Year 1: 10/01/2020 - 09/30/2021 (Period of analysis)
+Year 2: 10/01/2021 - 09/30/2022
+
+# Update from RIEM V2 {-}
+
+RIEM V3 incorporates segmentation of carriers by ISS risk groups, to account for any variance in change in crash rates within the three different ISS risk groups. The carriers are segmented after they are divided into their size groups (size group 1 being the carriers with 5 or fewer power units, and size group 4 being the carriers with 100 and over power units).
+
+# 1.1 Querying Data from MCMIS Database {-}
+
+We first query raw data from the MCMIS database. This includes data on power unit, inspection, and crash counts. 
+
+```{r}
+# this sets up R to Oracle connection, using RODBC package. Enter username and password after Uid and Pwd in the string below. Remove hashtag and run this cell to connect to MCMIS.
+
+#con <- odbcDriverConnect("Driver={Oracle in OraDB19Home1};Dbq=10.75.161.127:1526/AIDB;Uid=;Pwd=;")
+```
+
+```{r, eval = FALSE}
+# Query Power Unit Counts for Each Carrier {-} 
+
+# Year 0: 10/01/2018 - 09/30/2019 -> MCMIS191227
+# Year 1: 10/01/2019 - 09/30/2020 (Period of analysis) -> MCMIS201218
+# Year 2: 10/01/2020 - 09/30/2021 -> MCMIS220325
+
+qry <-"
+WITH CTE1 AS (SELECT a.DOT_NUMBER, b.CARRIER_EQUIPMENT_ID, EQUIPMENT_COUNT
+FROM MCMIS220325.CENSUS a
+    JOIN MCMIS220325.CARRIER_EQUIPMENT b ON a.DOT_NUMBER = b.DOT_NUMBER
+    JOIN MCMIS220325.EQUIPMENT_TYPE c ON b.EQUIPMENT_TYPE_ID = c.EQUIPMENT_TYPE_ID
+WHERE a.STATUS_CODE = 'A'
+    AND b.STATUS_CODE = 'A'
+    AND c.POWER_UNIT_FLAG = 'Y')
+SELECT DOT_NUMBER, SUM(EQUIPMENT_COUNT) AS PU_COUNT
+FROM CTE1
+WHERE EQUIPMENT_COUNT IS NOT NULL
+GROUP BY DOT_NUMBER
+ORDER BY PU_COUNT DESC;
+"
+pu_count <- sqlQuery(con, paste(qry))
+
+# Queries the number of power units per carrier in the year before
+
+qry <-"
+WITH CTE1 AS (SELECT a.DOT_NUMBER, b.CARRIER_EQUIPMENT_ID, EQUIPMENT_COUNT
+FROM MCMIS201218.CENSUS a
+    JOIN MCMIS201218.CARRIER_EQUIPMENT b ON a.DOT_NUMBER = b.DOT_NUMBER
+    JOIN MCMIS201218.EQUIPMENT_TYPE c ON b.EQUIPMENT_TYPE_ID = c.EQUIPMENT_TYPE_ID
+WHERE a.STATUS_CODE = 'A'
+    AND b.STATUS_CODE = 'A'
+    AND c.POWER_UNIT_FLAG = 'Y')
+SELECT DOT_NUMBER, SUM(EQUIPMENT_COUNT) AS PU_COUNT_PRE
+FROM CTE1
+WHERE EQUIPMENT_COUNT IS NOT NULL
+GROUP BY DOT_NUMBER
+ORDER BY PU_COUNT_PRE DESC;
+"
+
+pu_count_pre <- sqlQuery(con, paste(qry))
+
+# Queries the number of power units in year 0 
+
+qry <-"
+WITH CTE1 AS (SELECT a.DOT_NUMBER, b.CARRIER_EQUIPMENT_ID, EQUIPMENT_COUNT
+FROM MCMIS191227.CENSUS a
+    JOIN MCMIS191227.CARRIER_EQUIPMENT b ON a.DOT_NUMBER = b.DOT_NUMBER
+    JOIN MCMIS191227.EQUIPMENT_TYPE c ON b.EQUIPMENT_TYPE_ID = c.EQUIPMENT_TYPE_ID
+WHERE a.STATUS_CODE = 'A'
+    AND b.STATUS_CODE = 'A'
+    AND c.POWER_UNIT_FLAG = 'Y')
+SELECT DOT_NUMBER, SUM(EQUIPMENT_COUNT) AS PU_COUNT_PRE2
+FROM CTE1
+WHERE EQUIPMENT_COUNT IS NOT NULL
+GROUP BY DOT_NUMBER
+ORDER BY PU_COUNT_PRE2 DESC;
+"
+
+pu_count_pre2 <- sqlQuery(con, paste(qry))
+```
+
+```{r, eval = FALSE}
+
+# Query Inspection Counts for Each Carrier {-}
+
+# Queries the number of inspections Number of inspections in period 1
+
+qry <-"
+SELECT DOT_NUMBER, COUNT(*) AS INSP_COUNT
+FROM MCMIS240830.INSPECTION
+WHERE INSP_DATE BETWEEN TO_DATE('01/10/2020', 'DD/MM/YYYY') AND TO_DATE('30/09/2021', 'DD/MM/YYYY')
+    AND DOT_NUMBER IS NOT NULL
+GROUP BY DOT_NUMBER
+ORDER BY INSP_COUNT DESC;
+"
+insp_count <- sqlQuery(con, paste(qry))
+
+# Number of inspections in period 0
+
+qry <-"
+SELECT DOT_NUMBER, COUNT(*) AS INSP_COUNT_PRE
+FROM MCMIS240830.INSPECTION
+WHERE INSP_DATE BETWEEN TO_DATE('01/10/2019', 'DD/MM/YYYY') AND TO_DATE('30/09/2020', 'DD/MM/YYYY')
+    AND DOT_NUMBER IS NOT NULL
+GROUP BY DOT_NUMBER
+ORDER BY INSP_COUNT_PRE DESC;
+"
+insp_count_pre <- sqlQuery(con, paste(qry))
+```
+
+```{r, eval = FALSE}
+
+# Query Crash Counts for Each Carrier {-}
+
+# Queries the number of crashes experienced by each carrier between 01/07/2020 and 30/06/2021
+
+qry <-"
+SELECT DOT_NUMBER, COUNT(*) AS CRASH_COUNT
+FROM MCMIS240830.CRASH_MASTER
+WHERE REPORT_DATE BETWEEN TO_DATE('01/10/2021', 'DD/MM/YYYY') AND TO_DATE('30/09/2022', 'DD/MM/YYYY')
+    AND DOT_NUMBER IS NOT NULL
+GROUP BY DOT_NUMBER
+ORDER BY CRASH_COUNT DESC;
+"
+
+crash_count <- sqlQuery(con, paste(qry))
+
+#Queries the number of crashes experienced by each carrier between 01/07/2019 and 30/06/2020
+
+qry <-"
+SELECT DOT_NUMBER, COUNT(*) AS CRASH_COUNT_PRE
+FROM MCMIS240830.CRASH_MASTER
+WHERE REPORT_DATE BETWEEN TO_DATE('01/10/2020', 'DD/MM/YYYY') AND TO_DATE('30/09/2021', 'DD/MM/YYYY')
+    AND DOT_NUMBER IS NOT NULL
+GROUP BY DOT_NUMBER
+ORDER BY CRASH_COUNT_PRE DESC;
+"
+
+crash_count_pre <- sqlQuery(con, paste(qry))
+```
+
+```{r, eval = FALSE}
+# Query Number of Drivers for Each Carrier {-}
+
+# Queries the number of drivers for each carrier
+
+qry <- "
+WITH CTE1 AS (SELECT a.DOT_NUMBER, b.CARRIER_EQUIPMENT_ID, EQUIPMENT_COUNT
+FROM MCMIS220325.CENSUS a
+    JOIN MCMIS220325.CARRIER_EQUIPMENT b ON a.DOT_NUMBER = b.DOT_NUMBER
+    JOIN MCMIS220325.EQUIPMENT_TYPE c ON b.EQUIPMENT_TYPE_ID = c.EQUIPMENT_TYPE_ID
+WHERE a.STATUS_CODE = 'A'
+    AND b.STATUS_CODE = 'A'
+    AND c.POWER_UNIT_FLAG = 'Y')
+SELECT DOT_NUMBER, TOTAL_CDL, TOTAL_DRIVERS
+FROM MCMIS220325.CARRIER_DRIVER_COUNT
+WHERE STATUS_CODE = 'A'
+    AND DOT_NUMBER IN (SELECT DOT_NUMBER FROM CTE1);
+" 
+
+driver_count <-sqlQuery(con, paste(qry))
+
+```
+
+
+```{r, eval = FALSE}
+# queries the ISS inspection risk group for each carrier inspected in the inspection period
+
+qry <- "
+WITH CTE1 AS (SELECT DOT_NUMBER, RISK_GROUP, ISS2010_SAFETYVALUE, PART_KEY, PRZATION_RUNDATE, BASICS_RUNDATE
+FROM MCMIS220325.ISSDP_FINAL NATURAL JOIN MCMIS220325.PRI_RUNINFO
+WHERE PRZATION_RUNDATE BETWEEN TO_DATE('01/10/2016', 'DD/MM/YYYY') AND TO_DATE('30/09/2021', 'DD/MM/YYYY') ),
+
+CTE2 AS (SELECT DOT_NUMBER, INSPECTION_ID, REPORT_NUMBER, INSP_DATE, PRZATION_RUNDATE, BASICS_RUNDATE, RISK_GROUP, ISS2010_SAFETYVALUE, PART_KEY, INSP_DATE - PRZATION_RUNDATE AS DATE_DIFF
+FROM MCMIS220325.INSPECTION NATURAL JOIN CTE1
+WHERE INSP_DATE BETWEEN TO_DATE('01/10/2020', 'DD/MM/YYYY') AND TO_DATE('30/09/2021', 'DD/MM/YYYY')
+    AND DOT_NUMBER IS NOT NULL
+    AND INSP_DATE > PRZATION_RUNDATE),
+
+CTE3 AS (SELECT DOT_NUMBER, INSPECTION_ID, INSP_DATE, PRZATION_RUNDATE, BASICS_RUNDATE, RISK_GROUP, ISS2010_SAFETYVALUE, DATE_DIFF
+FROM CTE2
+WHERE DATE_DIFF <= 1825),
+
+CTE4 AS (SELECT INSPECTION_ID, MIN(DATE_DIFF) AS MIN_DATE_DIFF
+FROM CTE3
+GROUP BY INSPECTION_ID)
+
+SELECT *
+FROM CTE3 JOIN CTE4 ON CTE3.INSPECTION_ID = CTE4.INSPECTION_ID AND CTE3.DATE_DIFF = CTE4.MIN_DATE_DIFF;
+" 
+
+iss_groups <-sqlQuery(con, paste(qry))
+
+# close the connection
+#close(con)
+```
+
+```{r, eval = FALSE}
+# find the mode of risk group in a given year
+find_mode <- function(x) {
+  u <- unique(x)
+  tab <- tabulate(match(x, u))
+  u[tab == max(tab)]
+}
+
+#calculate mode of 'RISK_GROUP' by 'INSPECTION'
+iss_groups_mode <- iss_groups %>% group_by(DOT_NUMBER) %>% summarize(mode_risk_group = find_mode(RISK_GROUP))
+```
+
+# 1.2 Computing Rates and Ratios based on Raw Data {-}
+
+In this section we combine the separate raw data sets into one table. We then compute new variables such as inspection rates and crash rates, as well as ratios such as PU-to-driver ratios, which will be used to perform data quality checks and filters. 
+
+```{r, eval = FALSE}
+# left join all tables to pu_count table.
+df1 <- dplyr::left_join( pu_count, pu_count_pre) %>%
+dplyr::left_join(pu_count_pre2) %>%
+dplyr::left_join(insp_count) %>%
+dplyr::left_join(insp_count_pre) %>%
+dplyr::left_join(crash_count) %>% 
+dplyr::left_join(crash_count_pre) %>%
+dplyr::left_join(driver_count) %>%
+dplyr::left_join(iss_groups_mode)
+```
+
+
+```{r, eval = FALSE}
+# we can replace NA values with 0. NA values here resulted from having no rows in the inspection table, therefore an NA value means no inspection on record associated with a particular DOT Number.
+
+df1 <- df1 %>% replace(is.na(.), 0)
+
+# check
+sapply(df1, function(x) sum(is.na(x)))
+```
+
+```{r}
+# Compute Rates {-}
+
+# inspection rate
+df1 <- df1 %>% mutate(insp_rate = df1$INSP_COUNT/df1$PU_COUNT_PRE)
+
+# inspection rate pre
+
+df1 <- df1 %>% mutate(insp_rate_pre = df1$INSP_COUNT_PRE/df1$PU_COUNT_PRE2)
+
+# inspection rate change
+
+df1 <- df1 %>% mutate(insp_rate_change = insp_rate - insp_rate_pre)
+
+# crash rate 2023
+df1 <- df1 %>% mutate(crash_rate =
+df1$CRASH_COUNT/df1$PU_COUNT)
+
+# crash rate 2022
+df1 <- df1 %>% mutate(crash_rate_pre =df1$CRASH_COUNT_PRE/df1$PU_COUNT_PRE)
+
+# change in crash rates
+df1 <- df1 %>% mutate(crash_rate_change = df1$crash_rate - df1$crash_rate_pre)
+```
+
+```{r}
+# Compute Ratios {-}
+
+# pu to driver ratio
+df1 <- df1 %>% mutate(pu_to_driver = df1$PU_COUNT/df1$TOTAL_DRIVERS)
+
+# driver to pu ratio
+df1 <- df1 %>% mutate(driver_to_pu =
+df1$TOTAL_DRIVERS/df1$PU_COUNT)
+
+# pre to post pu_count ratio
+df1 <- df1 %>% mutate(pre_post_pu_ratio =
+df1$PU_COUNT_PRE/df1$PU_COUNT)
+```
+
+# 1.3 Data Grouping, Quality Checks, and Filtering {-}
+
+We now group carriers into four groups based on the size of their fleets. The grouping is identical to that applied in the CIEM model, and the model evaluates each group separately.
+
+Group 1: 1 to 5 Power Units
+
+Group 2: 6 to 20 Power Units
+
+Group 3: 21 to 100 Power Units
+
+Group 4: More than 100 Power Units
+
+In this section we also apply the majority of data filters and quality checks applied in CIEM, which minimize distortion from invalid or suspect data.
+
+```{r}
+# Filter Based on Driver-to-PU Ratios {-}
+
+# filter 1 - Based on the CIEM, driver to power-unit ratios must be between 7.5 and 1/7.5
+
+df1 <- df1[df1$driver_to_pu > 0.1334 & df1$driver_to_pu < 7.5,] 
+```
+
+
+```{r}
+# Group Carriers by Size {-}
+
+# Based on CIEM
+
+# Group 1 between 1 and 5 power units
+group_1 <- df1[df1$PU_COUNT >= 1 & df1$PU_COUNT <= 5,]
+
+# Group 2 between 6 and 20 power units
+group_2 <- df1[df1$PU_COUNT >= 6 & df1$PU_COUNT <= 20,]
+
+# Group 3 between 21 and 100 power units
+group_3 <- df1[df1$PU_COUNT >= 21 & df1$PU_COUNT <= 100,]
+
+# Group 4 greater than 100 power units
+group_4 <- df1[df1$PU_COUNT > 100,]
+```
+
+
+```{r}
+# Filter based on change in carrier size {-}
+
+# In the CIEM, carriers with extreme changes in number of Power Units are excluded to avoid distorting effects
+
+# Based on CIEM - for groups 1 and 2, pre-to-post PU ratio must be between 1/3 and 3
+group_1 <- group_1[group_1$pre_post_pu_ratio >= .3334 & group_1$pre_post_pu_ratio <= 3,]
+
+group_2 <- group_2[group_2$pre_post_pu_ratio >= .3334 & group_2$pre_post_pu_ratio <= 3,]
+
+# Based on CIEM - for groups 3 and 4, pre-to-post PU ratio must be between 1/1.75 and 1.75
+group_3 <- group_3[group_3$pre_post_pu_ratio >= .571 & group_3$pre_post_pu_ratio <= 1.75,]
+
+group_4 <- group_4[group_4$pre_post_pu_ratio >= .571 & group_4$pre_post_pu_ratio <= 1.75,]
+```
+
+
+```{r, results = 'hide', fig.keep='none'}
+# Check for and Remove Null Columns
+
+group_1 <- group_1[rowSums(is.na(group_1)) != ncol(group_1), ]
+
+#check
+#sapply(group_1, function(x) sum(is.na(x)))
+
+group_2 <- group_2[rowSums(is.na(group_2)) != ncol(group_2), ]
+
+#check
+#sapply(group_2, function(x) sum(is.na(x)))
+
+group_3 <- group_3[rowSums(is.na(group_3)) != ncol(group_3), ]
+
+#check
+#sapply(group_3, function(x) sum(is.na(x)))
+
+group_4 <- group_4[rowSums(is.na(group_4)) != ncol(group_4), ]
+
+#check
+#sapply(group_4, function(x) sum(is.na(x)))
+```
+
+```{r, results = 'hide', fig.keep='none'}
+# Filter Data within 5 Standard Deviations of Crash Rate to remove extreme outliers that are likely due to erroneous data
+
+# find mean for each group
+mean_group_1 <- mean(group_1$crash_rate)
+mean_group_2 <- mean(group_2$crash_rate)
+mean_group_3 <- mean(group_3$crash_rate)
+mean_group_4 <- mean(group_4$crash_rate)
+
+# find standard deviations for each group
+sd_group_1 <- sd(group_1$crash_rate)
+sd_group_2 <- sd(group_2$crash_rate)
+sd_group_3 <- sd(group_3$crash_rate)
+sd_group_4 <- sd(group_4$crash_rate)
+
+# group 1
+lower_limit <- mean_group_1 - (5 * sd_group_1)
+upper_limit <- mean_group_1 + (5 * sd_group_1)
+
+group_1 <- group_1[group_1$crash_rate >= lower_limit & group_1$crash_rate <= upper_limit,]
+
+# group 2
+lower_limit <- mean_group_2 - (5 * sd_group_2)
+upper_limit <- mean_group_2 + (5 * sd_group_2)
+
+group_2 <- group_2[group_2$crash_rate >= lower_limit & group_2$crash_rate <= upper_limit,]
+
+# group 3
+lower_limit <- mean_group_3 - (5 * sd_group_3)
+upper_limit <- mean_group_3 + (5 * sd_group_3)
+
+group_3 <- group_3[group_3$crash_rate >= lower_limit & group_3$crash_rate <= upper_limit,]
+
+
+# group 4
+lower_limit <- mean_group_4 - (5 * sd_group_4)
+upper_limit <- mean_group_4 + (5 * sd_group_4)
+
+group_4 <- group_4[group_4$crash_rate >= lower_limit & group_4$crash_rate <= upper_limit,]
+```
+
+```{r}
+# Other Exclusions {-}
+# Exclude carriers with PU count greater than 500 which had no crashes (likely erroneous data)
+
+exclude_list <- group_4[group_4$PU_COUNT > 500 & group_4$CRASH_COUNT == 0,]$DOT_NUMBER
+
+group_4 <- group_4[!(group_4$DOT_NUMBER %in% exclude_list),]
+```
+
+
+# 1.2 Computing Rates and Ratios based on Raw Data {-}
+
+In this section we combine the separate raw data sets into one table. We then compute new variables such as inspection rates and crash rates, as well as ratios such as PU-to-driver ratios, which will be used to perform data quality checks and filters. 
+
+```{r, eval = FALSE}
+# left join all tables to pu_count table.
+
+df1 <- dplyr::left_join(pu_count, pu_count_pre) %>%
+dplyr::left_join(pu_count_pre2) %>%
+dplyr::left_join(insp_count) %>%
+dplyr::left_join(insp_count_pre) %>%
+dplyr::left_join(crash_count) %>% 
+dplyr::left_join(crash_count_pre) %>%
+dplyr::left_join(driver_count) %>%
+dplyr::left_join(iss_groups_mode)
+```
+
+
+```{r, eval = FALSE}
+# we can replace NA values with 0. NA values here resulted from having no rows in the inspection table, therefore an NA value means no inspection on record associated with a particular DOT Number.
+
+df1 <- df1 %>% replace(is.na(.), 0)
+
+# check
+sapply(df1, function(x) sum(is.na(x)))
+```
+
+```{r}
+# Compute Rates {-}
+
+# inspection rate
+df1 <- df1 %>% mutate(insp_rate = df1$INSP_COUNT/df1$PU_COUNT_PRE)
+
+# inspection rate pre
+
+df1 <- df1 %>% mutate(insp_rate_pre = df1$INSP_COUNT_PRE/df1$PU_COUNT_PRE2)
+
+# inspection rate change
+
+df1 <- df1 %>% mutate(insp_rate_change = insp_rate - insp_rate_pre)
+
+# crash rate 2023
+df1 <- df1 %>% mutate(crash_rate = df1$CRASH_COUNT/df1$PU_COUNT)
+
+# crash rate 2022
+df1 <- df1 %>% mutate(crash_rate_pre =df1$CRASH_COUNT_PRE/df1$PU_COUNT_PRE)
+
+# change in crash rates
+df1 <- df1 %>% mutate(crash_rate_change = df1$crash_rate - df1$crash_rate_pre)
+```
+
+```{r}
+# Compute Ratios {-}
+
+# pu to driver ratio
+df1 <- df1 %>% mutate(pu_to_driver = df1$PU_COUNT/df1$TOTAL_DRIVERS)
+
+# driver to pu ratio
+df1 <- df1 %>% mutate(driver_to_pu =
+df1$TOTAL_DRIVERS/df1$PU_COUNT)
+
+# pre to post pu_count ratio
+df1 <- df1 %>% mutate(pre_post_pu_ratio =
+df1$PU_COUNT_PRE/df1$PU_COUNT)
+```
+
+# 1.3 Data Grouping, Quality Checks, and Filtering {-}
+
+We now group carriers into four groups based on the size of their fleets. The grouping is identical to that applied in the CIEM model, and the model evaluates each group separately.
+
+Group 1: 1 to 5 Power Units
+
+Group 2: 6 to 20 Power Units
+
+Group 3: 21 to 100 Power Units
+
+Group 4: More than 100 Power Units
+
+In this section we also apply the majority of data filters and quality checks applied in CIEM, which minimize distortion from invalid or suspect data.
+
+```{r}
+# Filter Based on Driver-to-PU Ratios {-}
+
+# filter 1 - Based on the CIEM, driver to power-unit ratios must be between 7.5 and 1/7.5
+
+df1 <- df1[df1$driver_to_pu > 0.1334 & df1$driver_to_pu < 7.5,] 
+```
+
+
+```{r}
+# Group Carriers by Size {-}
+
+# Based on CIEM
+
+# Group 1 between 1 and 5 power units
+group_1 <- df1[df1$PU_COUNT >= 1 & df1$PU_COUNT <= 5,]
+
+# Group 2 between 6 and 20 power units
+group_2 <- df1[df1$PU_COUNT >= 6 & df1$PU_COUNT <= 20,]
+
+# Group 3 between 21 and 100 power units
+group_3 <- df1[df1$PU_COUNT >= 21 & df1$PU_COUNT <= 100,]
+
+# Group 4 greater than 100 power units
+group_4 <- df1[df1$PU_COUNT > 100,]
+```
+
+
+```{r}
+# Filter based on change in carrier size {-}
+
+# In the CIEM, carriers with extreme changes in number of Power Units are excluded to avoid distorting effects
+
+# Based on CIEM - for groups 1 and 2, pre-to-post PU ratio must be between 1/3 and 3
+group_1 <- group_1[group_1$pre_post_pu_ratio >= .3334 & group_1$pre_post_pu_ratio <= 3,]
+
+group_2 <- group_2[group_2$pre_post_pu_ratio >= .3334 & group_2$pre_post_pu_ratio <= 3,]
+
+# Based on CIEM - for groups 3 and 4, pre-to-post PU ratio must be between 1/1.75 and 1.75
+group_3 <- group_3[group_3$pre_post_pu_ratio >= .571 & group_3$pre_post_pu_ratio <= 1.75,]
+
+group_4 <- group_4[group_4$pre_post_pu_ratio >= .571 & group_4$pre_post_pu_ratio <= 1.75,]
+```
+
+
+```{r, results = 'hide', fig.keep='none'}
+# Check for and Remove Null Columns
+
+group_1 <- group_1[rowSums(is.na(group_1)) != ncol(group_1), ]
+
+#check
+#sapply(group_1, function(x) sum(is.na(x)))
+
+group_2 <- group_2[rowSums(is.na(group_2)) != ncol(group_2), ]
+
+#check
+#sapply(group_2, function(x) sum(is.na(x)))
+
+group_3 <- group_3[rowSums(is.na(group_3)) != ncol(group_3), ]
+
+#check
+#sapply(group_3, function(x) sum(is.na(x)))
+
+group_4 <- group_4[rowSums(is.na(group_4)) != ncol(group_4), ]
+
+#check
+#sapply(group_4, function(x) sum(is.na(x)))
+```
+
+```{r, results = 'hide', fig.keep='none'}
+# Filter Data within 5 Standard Deviations of Crash Rate to remove extreme outliers that are likely due to erroneous data
+
+# find mean for each group
+mean_group_1 <- mean(group_1$crash_rate)
+mean_group_2 <- mean(group_2$crash_rate)
+mean_group_3 <- mean(group_3$crash_rate)
+mean_group_4 <- mean(group_4$crash_rate)
+
+# find standard deviations for each group
+sd_group_1 <- sd(group_1$crash_rate)
+sd_group_2 <- sd(group_2$crash_rate)
+sd_group_3 <- sd(group_3$crash_rate)
+sd_group_4 <- sd(group_4$crash_rate)
+
+# group 1
+lower_limit <- mean_group_1 - (5 * sd_group_1)
+upper_limit <- mean_group_1 + (5 * sd_group_1)
+
+group_1 <- group_1[group_1$crash_rate >= lower_limit & group_1$crash_rate <= upper_limit,]
+
+# group 2
+lower_limit <- mean_group_2 - (5 * sd_group_2)
+upper_limit <- mean_group_2 + (5 * sd_group_2)
+
+group_2 <- group_2[group_2$crash_rate >= lower_limit & group_2$crash_rate <= upper_limit,]
+
+# group 3
+lower_limit <- mean_group_3 - (5 * sd_group_3)
+upper_limit <- mean_group_3 + (5 * sd_group_3)
+
+group_3 <- group_3[group_3$crash_rate >= lower_limit & group_3$crash_rate <= upper_limit,]
+
+
+# group 4
+lower_limit <- mean_group_4 - (5 * sd_group_4)
+upper_limit <- mean_group_4 + (5 * sd_group_4)
+
+group_4 <- group_4[group_4$crash_rate >= lower_limit & group_4$crash_rate <= upper_limit,]
+```
+
+```{r}
+# Other Exclusions {-}
+# Exclude carriers with PU count greater than 500 which had no crashes (likely erroneous data)
+
+exclude_list <- group_4[group_4$PU_COUNT > 500 & group_4$CRASH_COUNT == 0,]$DOT_NUMBER
+
+group_4 <- group_4[!(group_4$DOT_NUMBER %in% exclude_list),]
+```
+
+
+# 1.4 Significance Testing {-}
+
+
+# Group 1 - (Carriers with 1 to 5 Power Units), All ISS Risk Groups {-}
+
+We perform one-way ANOVA between inspection rates and change in crash rates, and conclude that significance exists if p-value < 0.05 .
+
+
+```{r}
+# We modify the data set to include only those carriers within 99th percentile of the inspection rates. This is to exclude rows with unusually high inspection rates, which likely is erroneous data.
+
+group_1_modified <- group_1[group_1$insp_rate >= 0 & group_1$insp_rate < max(quantile(group_1$insp_rate, probs = seq(0, 1, 0.99))),]
+
+# We then exclude crash rate changes that are greater than the negative of the maximum positive crash rate change. This is to ensure that our analysis excludes carriers with extraordinarily high crash rates in year 1.
+
+group_1_modified <- group_1_modified[group_1_modified$crash_rate_change >= -max(group_1_modified$crash_rate_change),]
+
+# range(group_1_modified$crash_rate_change)
+```
+
+```{r}
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_1_modified)
+
+#view model summary
+summary(model)
+```
+```{r}
+pval_1_all <- summary(model)$coefficients[,4][[2]]
+slope_1_all <- summary(model)$coefficients[,1][[2]]
+slope_err_1_all <- summary(model)$coefficients[,2][[2]]
+stderror_1_all <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_1_modified)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_1_all <- mean(group_1_modified$insp_rate)
+mean_crc_1_all <- mean(group_1_modified$crash_rate_change)
+n_carriers_1_all <- nrow(group_1_modified)
+```
+
+# Analysis by ISS Risk Group {-}
+
+Below are the analysis applied to carriers in group 1, as segmented by their risk groups (1,2,or 3), where 3 is the lowest risk group and 1 the highest.
+
+# Group 1 - ISS Risk Group 3 (Low) {-}
+
+```{r}
+group_1_modified_rg3 <- group_1_modified[group_1_modified$mode_risk_group == 3, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_1_modified_rg3)
+
+#view model summary
+summary(model)
+```
+```{r}
+pval_1_low <- summary(model)$coefficients[,4][[2]]
+slope_1_low <- summary(model)$coefficients[,1][[2]]
+slope_err_1_low <- summary(model)$coefficients[,2][[2]]
+stderror_1_low <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_1_modified_rg3)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_1_low <- mean(group_1_modified_rg3$insp_rate)
+mean_crc_1_low <- mean(group_1_modified_rg3$crash_rate_change)
+n_carriers_1_low <- nrow(group_1_modified_rg3)
+```
+
+# Group 1 - ISS Risk Group 2 (Medium) {-}
+
+```{r}
+group_1_modified_rg2 <- group_1_modified[group_1_modified$mode_risk_group == 2, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_1_modified_rg2)
+
+#view model summary
+summary(model)
+```
+
+```{r}
+pval_1_med <- summary(model)$coefficients[,4][[2]]
+slope_1_med <- summary(model)$coefficients[,1][[2]]
+slope_err_1_med <- summary(model)$coefficients[,2][[2]]
+stderror_1_med <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_1_modified_rg2)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+```{r}
+mean_ir_1_med <- mean(group_1_modified_rg2$insp_rate)
+mean_crc_1_med <- mean(group_1_modified_rg2$crash_rate_change)
+n_carriers_1_med <- nrow(group_1_modified_rg2)
+```
+
+# Group 1 - ISS Risk Group 1 (High) {-}
+
+```{r}
+group_1_modified_rg1 <- group_1_modified[group_1_modified$mode_risk_group == 1, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_1_modified_rg1)
+
+#view model summary
+summary(model)
+```
+
+```{r}
+pval_1_high <- summary(model)$coefficients[,4][[2]]
+slope_1_high <- summary(model)$coefficients[,1][[2]]
+slope_err_1_high <- summary(model)$coefficients[,2][[2]]
+stderror_1_high <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_1_modified_rg1)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_1_high <- mean(group_1_modified_rg1$insp_rate)
+mean_crc_1_high <- mean(group_1_modified_rg1$crash_rate_change)
+n_carriers_1_high <- nrow(group_1_modified_rg1)
+```
+
+# Group 2 - (Carriers with 6 to 20 Power Units), All ISS Risk Groups  {-}
+
+```{r}
+# We filter the data set to include only those carriers within 99th percentile of the inspection rates
+group_2_modified <- group_2[group_2$insp_rate >= 0 & group_2$insp_rate < max(quantile(group_2$insp_rate, probs = seq(0, 1, 0.99))),]
+
+# We then exclude crash rate changes that are greater than the negative of the maximum positive crash rate change. This is to ensure that our analysis excludes carriers with extraordinarily high crash rates in year 1, as those with high crash rates are inevitably 
+
+group_2_modified <- group_2_modified[group_2_modified$crash_rate_change >= -max(group_2_modified$crash_rate_change),]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_2_modified)
+
+#view model summary
+summary(model)
+```
+
+```{r}
+pval_2_all <- summary(model)$coefficients[,4][[2]]
+slope_2_all <- summary(model)$coefficients[,1][[2]]
+slope_err_2_all <- summary(model)$coefficients[,2][[2]]
+stderror_2_all <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_2_modified)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_2_all <- mean(group_2_modified$insp_rate)
+mean_crc_2_all <- mean(group_2_modified$crash_rate_change)
+n_carriers_2_all <- nrow(group_2_modified)
+```
+
+# Analysis by ISS Risk Group {-}
+
+# Group 2 - ISS Risk Group 3 (Low) {-}
+
+```{r}
+group_2_modified_rg3 <- group_2_modified[group_2_modified$mode_risk_group == 3, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_2_modified_rg3)
+
+#view model summary
+summary(model)
+```
+
+```{r}
+pval_2_low <- summary(model)$coefficients[,4][[2]]
+slope_2_low <- summary(model)$coefficients[,1][[2]]
+slope_err_2_low <- summary(model)$coefficients[,2][[2]]
+stderror_2_low <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_2_modified_rg3)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_2_low <- mean(group_2_modified_rg3$insp_rate)
+mean_crc_2_low <- mean(group_2_modified_rg3$crash_rate_change)
+n_carriers_2_low <- nrow(group_2_modified_rg3)
+```
+
+# Group 2 - ISS Risk Group 2 (Medium) {-}
+
+```{r}
+group_2_modified_rg2 <- group_2_modified[group_2_modified$mode_risk_group == 2, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_2_modified_rg2)
+
+#view model summary
+summary(model)
+```
+```{r}
+pval_2_med <- summary(model)$coefficients[,4][[2]]
+slope_2_med <- summary(model)$coefficients[,1][[2]]
+slope_err_2_med <- summary(model)$coefficients[,2][[2]]
+stderror_2_med <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_2_modified_rg2)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+```{r}
+mean_ir_2_med <- mean(group_2_modified_rg2$insp_rate)
+mean_crc_2_med <- mean(group_2_modified_rg2$crash_rate_change)
+n_carriers_2_med <- nrow(group_2_modified_rg2)
+```
+
+# Group 2 - ISS Risk Group 1 (High) {-}
+
+```{r}
+group_2_modified_rg1 <- group_2_modified[group_2_modified$mode_risk_group == 1, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_2_modified_rg1)
+
+#view model summary
+summary(model)
+```
+```{r}
+pval_2_high <- summary(model)$coefficients[,4][[2]]
+slope_2_high <- summary(model)$coefficients[,1][[2]]
+slope_err_2_high <- summary(model)$coefficients[,2][[2]]
+stderror_2_high <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_2_modified_rg3)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_2_high <- mean(group_2_modified_rg1$insp_rate)
+mean_crc_2_high <- mean(group_2_modified_rg1$crash_rate_change)
+n_carriers_2_high <- nrow(group_2_modified_rg1)
+```
+
+# Group 3 - (Carriers with 21 to 100 Power Units), All ISS Risk Groups {-}
+
+
+```{r}
+# We filter the data set to include only those carriers within 99th percentile of the inspection rates
+group_3_modified <- group_3[group_3$insp_rate >= 0 & group_3$insp_rate < max(quantile(group_3$insp_rate, probs = seq(0, 1, 0.99))),]
+
+# We then exclude crash rate changes that are greater than the negative of the maximum positive crash rate change. This is to ensure that our analysis excludes carriers with extraordinarily high crash rates in year 1. 
+
+group_3_modified <- group_3_modified[group_3_modified$crash_rate_change >= -max(group_3_modified$crash_rate_change),]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_3_modified)
+
+#view model summary
+summary(model)
+```
+
+```{r}
+pval_3_all <- summary(model)$coefficients[,4][[2]]
+slope_3_all <- summary(model)$coefficients[,1][[2]]
+slope_err_3_all <- summary(model)$coefficients[,2][[2]]
+stderror_3_all <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_3_modified)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+```{r}
+mean_ir_3_all <- mean(group_3_modified$insp_rate)
+mean_crc_3_all <- mean(group_3_modified$crash_rate_change)
+n_carriers_3_all <- nrow(group_3_modified)
+```
+
+# Analysis by ISS Risk Group {-}
+
+# Group 3 - ISS Risk Group 3 (Low) {-}
+
+```{r}
+group_3_modified_rg3 <- group_3_modified[group_3_modified$mode_risk_group == 3, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_3_modified_rg3)
+
+#view model summary
+summary(model)
+```
+
+```{r}
+pval_3_low <- summary(model)$coefficients[,4][[2]]
+slope_3_low <- summary(model)$coefficients[,1][[2]]
+slope_err_3_low <- summary(model)$coefficients[,2][[2]]
+stderror_3_low <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_3_modified_rg3)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_3_low <- mean(group_3_modified_rg3$insp_rate)
+mean_crc_3_low <- mean(group_3_modified_rg3$crash_rate_change)
+n_carriers_3_low <- nrow(group_3_modified_rg3)
+```
+
+# Group 3 - ISS Risk Group 2 (Medium) {-}
+
+```{r}
+group_3_modified_rg2 <- group_3_modified[group_3_modified$mode_risk_group == 2, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_3_modified_rg2)
+
+#view model summary
+summary(model)
+```
+```{r}
+pval_3_med <- summary(model)$coefficients[,4][[2]]
+slope_3_med <- summary(model)$coefficients[,1][[2]]
+slope_err_3_med <- summary(model)$coefficients[,2][[2]]
+stderror_3_med <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_3_modified_rg2)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_3_med <- mean(group_3_modified_rg2$insp_rate)
+mean_crc_3_med <- mean(group_3_modified_rg2$crash_rate_change)
+n_carriers_3_med <- nrow(group_3_modified_rg2)
+```
+
+# Group 3 - ISS Risk Group 1 (High) {-}
+
+```{r}
+group_3_modified_rg1 <- group_3_modified[group_3_modified$mode_risk_group == 1, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_3_modified_rg1)
+
+#view model summary
+summary(model)
+```
+
+```{r}
+pval_3_high <- summary(model)$coefficients[,4][[2]]
+slope_3_high <- summary(model)$coefficients[,1][[2]]
+slope_err_3_high <- summary(model)$coefficients[,2][[2]]
+stderror_3_high <- sqrt(deviance(model)/df.residual(model))
+```
+
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_3_modified_rg1)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_3_high <- mean(group_3_modified_rg1$insp_rate)
+mean_crc_3_high <- mean(group_3_modified_rg1$crash_rate_change)
+n_carriers_3_high <- nrow(group_3_modified_rg1)
+```
+
+# Group 4 - (Carriers with More than 100 Power Units), All ISS Risk Groups  {-}
+
+ANOVA between inspection rates and change in crash rates in group 4 carriers shows a p-value of close to zero.
+
+The slope of the line fitted is -0.0036113 in group 4.
+
+```{r}
+# We filter the data set to include only those carriers within 99th percentile of the inspection rates
+group_4_modified <- group_4[group_4$insp_rate > 0.0 & group_4$insp_rate <max(quantile(group_4$insp_rate, probs = seq(0, 1, 0.99))),]
+
+# We then exclude crash rate changes that are greater than the negative of the maximum positive crash rate change. This is to ensure that our analysis excludes carriers with extraordinarily high crash rates in year 1.
+
+group_4_modified <- group_4_modified[group_4_modified$crash_rate_change >= -max(group_4_modified$crash_rate_change),]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_4_modified)
+
+#view model summary
+summary(model)
+```
+```{r}
+pval_4_all <- summary(model)$coefficients[,4][[2]]
+slope_4_all <- summary(model)$coefficients[,1][[2]]
+slope_err_4_all <- summary(model)$coefficients[,2][[2]]
+stderror_4_all <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_4_modified)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+```{r}
+mean_ir_4_all <- mean(group_4_modified$insp_rate)
+mean_crc_4_all <- mean(group_4_modified$crash_rate_change)
+n_carriers_4_all <- nrow(group_4_modified)
+```
+
+
+# Analysis by ISS Risk Group {-}
+
+# Group 4 - ISS Risk Group 3 (Low) {-}
+
+```{r}
+group_4_modified_rg3 <- group_4_modified[group_4_modified$mode_risk_group == 3, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_4_modified_rg3)
+
+#view model summary
+summary(model)
+```
+```{r}
+pval_4_low <- summary(model)$coefficients[,4][[2]]
+slope_4_low <- summary(model)$coefficients[,1][[2]]
+slope_err_4_low <- summary(model)$coefficients[,2][[2]]
+stderror_4_low <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_4_modified_rg3)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_4_low <- mean(group_4_modified_rg3$insp_rate)
+mean_crc_4_low <- mean(group_4_modified_rg3$crash_rate_change)
+n_carriers_4_low <- nrow(group_4_modified_rg3)
+```
+
+# Group 4 - ISS Risk Group 2 (Medium) {-}
+
+```{r}
+group_4_modified_rg2 <- group_4_modified[group_4_modified$mode_risk_group == 2, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_4_modified_rg2)
+
+#view model summary
+summary(model)
+```
+```{r}
+pval_4_med <- summary(model)$coefficients[,4][[2]]
+slope_4_med <- summary(model)$coefficients[,1][[2]]
+slope_err_4_med <- summary(model)$coefficients[,2][[2]]
+stderror_4_med <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_4_modified_rg2)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_4_med <- mean(group_4_modified_rg2$insp_rate)
+mean_crc_4_med <- mean(group_4_modified_rg2$crash_rate_change)
+n_carriers_4_med <- nrow(group_4_modified_rg2)
+```
+
+# Group 4 - ISS Risk Group 1 (High) {-}
+
+```{r}
+group_4_modified_rg1 <- group_4_modified[group_4_modified$mode_risk_group == 1, ]
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate, data=group_4_modified_rg1)
+
+#view model summary
+summary(model)
+```
+
+```{r}
+pval_4_high <- summary(model)$coefficients[,4][[2]]
+slope_4_high <- summary(model)$coefficients[,1][[2]]
+slope_err_4_high <- summary(model)$coefficients[,2][[2]]
+stderror_4_high <- sqrt(deviance(model)/df.residual(model))
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate, data=group_4_modified_rg1)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+```{r}
+mean_ir_4_high <- mean(group_4_modified_rg1$insp_rate)
+mean_crc_4_high <- mean(group_4_modified_rg1$crash_rate_change)
+n_carriers_4_high <- nrow(group_4_modified_rg1)
+```
+
+# Summary Table
+
+```{r}
+group_size <- c('1','1', '1','1','2','2','2','2','3','3','3','3','4','4','4','4')
+
+group_iss <- c('all','low','med','high','all','low','med','high','all','low','med','high','all','low','med','high')
+
+slope <- c(slope_1_all,slope_1_low,slope_1_med,slope_1_high,slope_2_all,slope_2_low,slope_2_med,slope_2_high, slope_3_all, slope_3_low, slope_3_med, slope_3_high, slope_4_all, slope_4_low, slope_4_med, slope_4_high)
+
+pval <- c(pval_1_all,pval_1_low,pval_1_med,pval_1_high,pval_2_all,pval_2_low,pval_2_med,pval_2_high, pval_3_all, pval_3_low, pval_3_med, pval_3_high, pval_4_all, pval_4_low, pval_4_med, pval_4_high)
+
+slope_err <- c(slope_err_1_all, slope_err_1_low, slope_err_1_med, slope_err_1_high, slope_err_2_all, slope_err_2_low, slope_err_2_med, slope_err_2_high, slope_err_3_all, slope_err_3_low, slope_err_3_med, slope_err_3_high, slope_err_4_all, slope_err_4_low, slope_err_4_med, slope_err_4_high)
+
+stderror <- c(stderror_1_all, stderror_1_low, stderror_1_med, stderror_1_high, stderror_2_all, stderror_2_low, stderror_2_med, stderror_2_high, stderror_3_all, stderror_3_low, stderror_3_med, stderror_3_high, stderror_4_all, stderror_4_low, stderror_4_med, stderror_4_high)
+
+mean_ir <- c(mean_ir_1_all,mean_ir_1_low,mean_ir_1_med,mean_ir_1_high,mean_ir_2_all,mean_ir_2_low,mean_ir_2_med,mean_ir_2_high, mean_ir_3_all, mean_ir_3_low, mean_ir_3_med, mean_ir_3_high, mean_ir_4_all, mean_ir_4_low, mean_ir_4_med, mean_ir_4_high)
+
+mean_crc <- c(mean_crc_1_all,mean_crc_1_low,mean_crc_1_med,mean_crc_1_high,mean_crc_2_all,mean_crc_2_low,mean_crc_2_med,mean_crc_2_high, mean_crc_3_all, mean_crc_3_low, mean_crc_3_med, mean_crc_3_high, mean_crc_4_all, mean_crc_4_low, mean_crc_4_med, mean_crc_4_high)
+
+n_carriers <- c(n_carriers_1_all,n_carriers_1_low,n_carriers_1_med,n_carriers_1_high,n_carriers_2_all,n_carriers_2_low,n_carriers_2_med,n_carriers_2_high,n_carriers_3_all, n_carriers_3_low, n_carriers_3_med, n_carriers_3_high, n_carriers_4_all, n_carriers_4_low, n_carriers_4_med, n_carriers_4_high)
+```
+
+```{r}
+summary <- data.frame(group_size, group_iss, slope, pval, stderror, slope_err, n_carriers, mean_ir, mean_crc)
+
+write_csv(summary, 'C:\\Users\\Philip.Situmorang\\Desktop\\RIEM\\1 - Main\\Period 2\\summary_slopes_period2.csv')
+```
+
+# Summary Table (just "all" no iss risk group division)
+
+```{r}
+group_size <- c('1','2','3','4')
+
+slope <- c(slope_1_all,slope_2_all,slope_3_all, slope_4_all)
+
+pval <- c(pval_1_all,pval_2_all, pval_3_all,pval_4_all)
+
+stderror <- c(stderror_1_all,  stderror_2_all, stderror_3_all, stderror_4_all)
+
+slope_err <- c(slope_err_1_all, slope_err_2_all, slope_err_3_all, slope_err_4_all)
+
+mean_ir <- c(mean_ir_1_all,mean_ir_2_all, mean_ir_3_all, mean_ir_4_all)
+
+mean_crc <- c(mean_crc_1_all,mean_crc_2_all, mean_crc_3_all, mean_crc_4_all)
+
+n_carriers <- c(n_carriers_1_all,n_carriers_2_all,n_carriers_3_all, n_carriers_4_all)
+```
+
+```{r}
+summary_all <- data.frame(group_size, slope, pval, stderror, slope_err, n_carriers, mean_ir, mean_crc)
+
+write_csv(summary_all, 'C:\\Users\\Philip.Situmorang\\Desktop\\RIEM\\1 - Main\\Period 2\\summary_slopes_period2_all.csv')
+```
+
+# Part 2 - Benefits Estimations
+
+```{r}
+# We modify the data set to include only those carriers within 99th percentile of the inspection rates. This is to exclude rows with unusually high inspection rates, which likely is erroneous data.
+
+group_1_modified <- group_1[group_1$insp_rate >= 0 & group_1$insp_rate < max(quantile(group_1$insp_rate, probs = seq(0, 1, 0.99))),]
+
+# We then exclude crash rate changes that are greater than the negative of the maximum positive crash rate change. This is to ensure that our analysis excludes carriers with extraordinarily high crash rates in year 1.
+
+group_1_modified <- group_1_modified[group_1_modified$crash_rate_change >= -max(group_1_modified$crash_rate_change),]
+
+# range(group_1_modified$crash_rate_change)
+```
+
+```{r}
+# We filter the data set to include only those carriers within 99th percentile of the inspection rates
+group_2_modified <- group_2[group_2$insp_rate >= 0 & group_2$insp_rate < max(quantile(group_2$insp_rate, probs = seq(0, 1, 0.99))),]
+
+# We then exclude crash rate changes that are greater than the negative of the maximum positive crash rate change. This is to ensure that our analysis excludes carriers with extraordinarily high crash rates in year 1, as those with high crash rates are inevitably 
+
+group_2_modified <- group_2_modified[group_2_modified$crash_rate_change >= -max(group_2_modified$crash_rate_change),]
+```
+
+```{r}
+# We filter the data set to include only those carriers within 99th percentile of the inspection rates
+group_3_modified <- group_3[group_3$insp_rate >= 0 & group_3$insp_rate < max(quantile(group_3$insp_rate, probs = seq(0, 1, 0.99))),]
+
+# We then exclude crash rate changes that are greater than the negative of the maximum positive crash rate change. This is to ensure that our analysis excludes carriers with extraordinarily high crash rates in year 1. 
+
+group_3_modified <- group_3_modified[group_3_modified$crash_rate_change >= -max(group_3_modified$crash_rate_change),]
+```
+
+```{r}
+# We filter the data set to include only those carriers within 99th percentile of the inspection rates
+group_4_modified <- group_4[group_4$insp_rate > 0.0 & group_4$insp_rate <max(quantile(group_4$insp_rate, probs = seq(0, 1, 0.99))),]
+
+# We then exclude crash rate changes that are greater than the negative of the maximum positive crash rate change. This is to ensure that our analysis excludes carriers with extraordinarily high crash rates in year 1.
+
+group_4_modified <- group_4_modified[group_4_modified$crash_rate_change >= -max(group_4_modified$crash_rate_change),]
+```
+
+
+# Group 1 all
+
+```{r}
+group <- c('1','1','1','1','1','1','1','1','1','1')
+decile<- c('0%','10%','20%','30%','40%','50%','60%','70%','80%','90%')
+ir_thresholds <- quantile(group_1_modified$insp_rate, probs = seq(0, .9, by = .1))
+crashes_pvtd <- c()
+num_a_carriers <- c()
+num_b_carriers <- c()
+avg_crc_a <- c()
+avg_crc_b <- c()
+benchmark <- c()
+
+for (i in ir_thresholds) {
+  threshold <- i
+  
+  group_1_a_t <- group_1_modified[group_1_modified$insp_rate > threshold,]
+  group_1_b_t <- group_1_modified[group_1_modified$insp_rate <= threshold,]
+  
+  n_carriers_a <- nrow(group_1_a_t)
+  n_carriers_b <- nrow(group_1_b_t)
+  
+  mean_crc_a <- mean(group_1_a_t$crash_rate_change)
+  mean_crc_b <- mean(group_1_b_t$crash_rate_change)
+  
+  model <- lm(crash_rate_change~insp_rate, data=group_1_modified)
+  yint <- summary(model)$coefficients[,1][[1]]
+  
+  crc_benchmark <- mean_crc_b
+  
+  if(length(crashes_pvtd) == 0){
+  crc_benchmark <- yint
+  }
+  
+  group_1_a_t$regression_line <- predict(model, data.frame(insp_rate = group_1_a_t$insp_rate))
+
+  # this is the difference between the mean crash rate change of the control (b) group and the expected crash   rate change of each carrier at the treatment (a) group
+  group_1_a_t$difference <- group_1_a_t$regression_line - crc_benchmark
+
+  group_1_a_t$crashes_prevented <- group_1_a_t$PU_COUNT * group_1_a_t$difference
+
+  crashes_prevented <- sum(group_1_a_t$crashes_prevented)
+  
+  #append
+  num_a_carriers <- append(num_a_carriers, n_carriers_a)
+  num_b_carriers <- append(num_b_carriers, n_carriers_b)
+  avg_crc_a <- append(avg_crc_a, mean_crc_a)
+  avg_crc_b <- append(avg_crc_b, mean_crc_b)
+  benchmark <- append(benchmark, crc_benchmark)
+  crashes_pvtd <- append(crashes_pvtd, crashes_prevented)
+}
+```
+
+```{r}
+summary1 <- data.frame(group, decile, ir_thresholds, crashes_pvtd, num_a_carriers,num_b_carriers, avg_crc_a, avg_crc_b, benchmark)
+
+summary1
+```
+
+
+# Group 2 All
+
+```{r}
+group <- c('2','2','2','2','2','2','2','2','2','2')
+decile<- c('0%','10%','20%','30%','40%','50%','60%','70%','80%','90%')
+ir_thresholds <- quantile(group_2_modified$insp_rate, probs = seq(0, .9, by = .1))
+crashes_pvtd <- c()
+num_a_carriers <- c()
+num_b_carriers <- c()
+avg_crc_a <- c()
+avg_crc_b <- c()
+benchmark <- c()
+
+
+for (i in ir_thresholds) {
+  threshold <- i
+  
+  group_2_a_t <- group_2_modified[group_2_modified$insp_rate > threshold,]
+  group_2_b_t <- group_2_modified[group_2_modified$insp_rate <= threshold,]
+  
+  n_carriers_a <- nrow(group_2_a_t)
+  n_carriers_b <- nrow(group_2_b_t)
+  
+  mean_crc_a <- mean(group_2_a_t$crash_rate_change)
+  mean_crc_b <- mean(group_2_b_t$crash_rate_change)
+  
+  model <- lm(crash_rate_change~insp_rate, data=group_2_modified)
+  yint <- summary(model)$coefficients[,1][[1]]
+  
+  crc_benchmark <- mean_crc_b
+  
+  if(length(crashes_pvtd) == 0){
+  crc_benchmark <- yint
+  }
+  
+  group_2_a_t$regression_line <- predict(model, data.frame(insp_rate = group_2_a_t$insp_rate))
+
+  # this is the difference between the mean crash rate change of the control (b) group and the expected crash   rate change of each carrier at the treatment (a) group
+  group_2_a_t$difference <- group_2_a_t$regression_line - crc_benchmark
+
+  group_2_a_t$crashes_prevented <- group_2_a_t$PU_COUNT * group_2_a_t$difference
+
+  crashes_prevented <- sum(group_2_a_t$crashes_prevented)
+  
+  #append
+  num_a_carriers <- append(num_a_carriers, n_carriers_a)
+  num_b_carriers <- append(num_b_carriers, n_carriers_b)
+  avg_crc_a <- append(avg_crc_a, mean_crc_a)
+  avg_crc_b <- append(avg_crc_b, mean_crc_b)
+  benchmark <- append(benchmark, crc_benchmark)
+  crashes_pvtd <- append(crashes_pvtd, crashes_prevented)
+}
+
+```
+```{r}
+summary2 <- data.frame(group, decile, ir_thresholds, crashes_pvtd, num_a_carriers,num_b_carriers, avg_crc_a, avg_crc_b, benchmark)
+
+summary2
+```
+
+# Group 3 all
+
+```{r}
+
+group <- c('3','3','3','3','3','3','3','3','3','3')
+decile<- c('0%','10%','20%','30%','40%','50%','60%','70%','80%','90%')
+ir_thresholds <- quantile(group_3_modified$insp_rate, probs = seq(0, .9, by = .1))
+crashes_pvtd <- c()
+num_a_carriers <- c()
+num_b_carriers <- c()
+avg_crc_a <- c()
+avg_crc_b <- c()
+benchmark <- c()
+
+for (i in ir_thresholds) {
+  threshold <- i
+  
+  group_3_a_t <- group_3_modified[group_3_modified$insp_rate > threshold,]
+  group_3_b_t <- group_3_modified[group_3_modified$insp_rate <= threshold,]
+  
+  n_carriers_a <- nrow(group_3_a_t)
+  n_carriers_b <- nrow(group_3_b_t)
+  
+  mean_crc_a <- mean(group_3_a_t$crash_rate_change)
+  mean_crc_b <- mean(group_3_b_t$crash_rate_change)
+  
+  model <- lm(crash_rate_change~insp_rate, data=group_3_modified)
+  yint <- summary(model)$coefficients[,1][[1]]
+  
+  crc_benchmark <- mean_crc_b
+  
+  if(length(crashes_pvtd) == 0){
+  crc_benchmark <- yint
+  }
+  
+  group_3_a_t$regression_line <- predict(model, data.frame(insp_rate = group_3_a_t$insp_rate))
+
+  # this is the difference between the mean crash rate change of the control (b) group and the expected crash   rate change of each carrier at the treatment (a) group
+  group_3_a_t$difference <- group_3_a_t$regression_line - crc_benchmark
+
+  group_3_a_t$crashes_prevented <- group_3_a_t$PU_COUNT * group_3_a_t$difference
+
+  crashes_prevented <- sum(group_3_a_t$crashes_prevented)
+  
+  #append
+  num_a_carriers <- append(num_a_carriers, n_carriers_a)
+  num_b_carriers <- append(num_b_carriers, n_carriers_b)
+  avg_crc_a <- append(avg_crc_a, mean_crc_a)
+  avg_crc_b <- append(avg_crc_b, mean_crc_b)
+  benchmark <- append(benchmark, crc_benchmark)
+  crashes_pvtd <- append(crashes_pvtd, crashes_prevented)
+}
+```
+
+```{r}
+summary3 <- data.frame(group, decile, ir_thresholds, crashes_pvtd, num_a_carriers,num_b_carriers, avg_crc_a, avg_crc_b, benchmark)
+
+summary3
+```
+# Group 4 all
+
+```{r}
+group <- c('4','4','4','4','4','4','4','4','4','4')
+decile<- c('0%','10%','20%','30%','40%','50%','60%','70%','80%','90%')
+ir_thresholds <- quantile(group_4_modified$insp_rate, probs = seq(0, .9, by = .1))
+crashes_pvtd <- c()
+num_a_carriers <- c()
+num_b_carriers <- c()
+avg_crc_a <- c()
+avg_crc_b <- c()
+benchmark <- c()
+
+for (i in ir_thresholds) {
+  threshold <- i
+  
+  group_4_a_t <- group_4_modified[group_4_modified$insp_rate > threshold,]
+  group_4_b_t <- group_4_modified[group_4_modified$insp_rate <= threshold,]
+  
+  n_carriers_a <- nrow(group_4_a_t)
+  n_carriers_b <- nrow(group_4_b_t)
+  
+  mean_crc_a <- mean(group_4_a_t$crash_rate_change)
+  mean_crc_b <- mean(group_4_b_t$crash_rate_change)
+  
+  model <- lm(crash_rate_change~insp_rate, data=group_4_modified)
+  yint <- summary(model)$coefficients[,1][[1]]
+  
+  crc_benchmark <- mean_crc_b
+  
+  if(length(crashes_pvtd) == 0){
+  crc_benchmark <- yint
+  }
+  
+  group_4_a_t$regression_line <- predict(model, data.frame(insp_rate = group_4_a_t$insp_rate))
+
+  # this is the difference between the mean crash rate change of the control (b) group and the expected crash   rate change of each carrier at the treatment (a) group
+  group_4_a_t$difference <- group_4_a_t$regression_line - crc_benchmark
+
+  group_4_a_t$crashes_prevented <- group_4_a_t$PU_COUNT * group_4_a_t$difference
+
+  crashes_prevented <- sum(group_4_a_t$crashes_prevented)
+  
+  #append
+  num_a_carriers <- append(num_a_carriers, n_carriers_a)
+  num_b_carriers <- append(num_b_carriers, n_carriers_b)
+  avg_crc_a <- append(avg_crc_a, mean_crc_a)
+  avg_crc_b <- append(avg_crc_b, mean_crc_b)
+  benchmark <- append(benchmark, crc_benchmark)
+  crashes_pvtd <- append(crashes_pvtd, crashes_prevented)
+}
+```
+
+```{r}
+summary4 <- data.frame(group, decile, ir_thresholds, crashes_pvtd, num_a_carriers,num_b_carriers, avg_crc_a, avg_crc_b, benchmark)
+
+summary4
+```
+
+```{r}
+sensitivity <- rbind(summary1, summary2, summary3, summary4)
+
+write_csv(sensitivity, 'C:\\Users\\Philip.Situmorang\\Desktop\\RIEM\\1 - Main\\Period 2\\sensitivity_period2.csv')
+```
+
+# Part 3 - Change in Inspection Rate vs Change in Crash Rate
+
+```{r}
+# We modify the data set to include only those carriers within 99th percentile of the inspection rates. This is to exclude rows with unusually high inspection rates, which likely is erroneous data.
+
+group_1_modified <- na.omit(group_1_modified)
+group_2_modified <- na.omit(group_2_modified)
+group_3_modified <- na.omit(group_3_modified)
+group_4_modified <- na.omit(group_4_modified)
+
+group_1_modified <- group_1_modified[group_1_modified$insp_rate_pre < max(quantile(group_1_modified$insp_rate_pre, probs = seq(0, 1, 0.99))),]
+
+group_2_modified <- group_2_modified[group_2_modified$insp_rate_pre < max(quantile(group_2_modified$insp_rate_pre, probs = seq(0, 1, 0.99))),]
+
+group_3_modified <- group_3_modified[group_3_modified$insp_rate_pre < max(quantile(group_3_modified$insp_rate_pre, probs = seq(0, 1, 0.99))),]
+
+group_4_modified <- group_4_modified[group_4_modified$insp_rate_pre < max(quantile(group_4_modified$insp_rate_pre, probs = seq(0, 1, 0.99))),]
+```
+
+```{r, results = 'hide', fig.keep='none'}
+# Filter Data within n Standard Deviations of Crash Rate to remove extreme outliers that are likely due to erroneous data
+
+# number of standard deviations
+n <- 3
+
+# find mean for each group
+mean_group_1 <- mean(group_1_modified$insp_rate_change)
+mean_group_2 <- mean(group_2_modified$insp_rate_change)
+mean_group_3 <- mean(group_3_modified$insp_rate_change)
+mean_group_4 <- mean(group_4_modified$insp_rate_change)
+
+# find standard deviations for each group
+sd_group_1 <- sd(group_1_modified$insp_rate_change)
+sd_group_2 <- sd(group_2_modified$insp_rate_change)
+sd_group_3 <- sd(group_3_modified$insp_rate_change)
+sd_group_4 <- sd(group_4_modified$insp_rate_change)
+
+# group 1
+lower_limit <- mean_group_1 - (n * sd_group_1)
+upper_limit <- mean_group_1 + (n * sd_group_1)
+
+group_1_modified <- group_1_modified[group_1_modified$insp_rate_change >= lower_limit & group_1_modified$insp_rate_change <= upper_limit,]
+
+# group 2
+lower_limit <- mean_group_2 - (n * sd_group_2)
+upper_limit <- mean_group_2 + (n * sd_group_2)
+
+group_2_modified <- group_2_modified[group_2_modified$insp_rate_change >= lower_limit & group_2_modified$insp_rate_change <= upper_limit,]
+
+# group 3
+lower_limit <- mean_group_3 - (n * sd_group_3)
+upper_limit <- mean_group_3 + (n * sd_group_3)
+
+group_3_modified <- group_3_modified[group_3_modified$insp_rate_change >= lower_limit & group_3_modified$insp_rate_change <= upper_limit,]
+
+# group 4
+lower_limit <- mean_group_4 - (n * sd_group_4)
+upper_limit <- mean_group_4 + (n * sd_group_4)
+
+group_4_modified <- group_4_modified[group_4_modified$insp_rate_change >= lower_limit & group_4_modified$insp_rate_change <= upper_limit,]
+```
+
+# Group 1
+
+
+```{r}
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate_change, data=group_1_modified)
+
+#view model summary
+summary(model)
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate_change, data=group_1_modified)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+# Group 2
+
+```{r}
+#fit regression model
+model <- lm(crash_rate_change~insp_rate_change, data=group_2_modified)
+
+#view model summary
+summary(model)
+```
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate_change, data=group_2_modified)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+# Group 3
+
+```{r}
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate_change, data=group_3_modified)
+
+#view model summary
+summary(model)
+```
+
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate_change, data=group_3_modified)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
+
+# Group 4
+
+```{r}
+
+#fit regression model
+model <- lm(crash_rate_change~insp_rate_change, data=group_4_modified)
+
+#view model summary
+summary(model)
+```
+
+
+```{r}
+#create scatterplot
+plot(crash_rate_change ~ insp_rate_change, data=group_4_modified)
+
+#add fitted regression line to scatterplot
+abline(model, col = 'blue', lwd = 2)
+```
